@@ -1,0 +1,56 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String        @id @default(cuid())
+  clerkId      String        @unique
+  email        String        @unique
+  name         String?
+  currency     String        @default("INR")
+  createdAt    DateTime      @default(now())
+  transactions Transaction[]
+  budgets      Budget[]
+  insights     AIInsight[]
+}
+
+model Transaction {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id])
+  amount      Float
+  type        String
+  category    String
+  description String?
+  date        DateTime
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Budget {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id])
+  category    String
+  limitAmount Float
+  month       Int
+  year        Int
+  createdAt   DateTime @default(now())
+  @@unique([userId, category, month, year])
+}
+
+model AIInsight {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id])
+  summary     String
+  month       Int
+  year        Int
+  generatedAt DateTime @default(now())
+  @@unique([userId, month, year])
+}
