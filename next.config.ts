@@ -5,7 +5,7 @@ const nextConfig: NextConfig = {
     return [
       {
         source: "/__clerk/:path*",
-        destination: "https://frontend-api.clerk.services/:path*",
+        destination: "https://clerk.personal-finance-coach-six.vercel.app/:path*",
       },
     ];
   },
