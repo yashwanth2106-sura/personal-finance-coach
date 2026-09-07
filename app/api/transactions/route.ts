@@ -3,44 +3,71 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
 export async function GET() {
-  const { userId } = await auth();
-  if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  try {
+    const { userId } = await auth();
+    if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const user = await prisma.user.findUnique({ where: { clerkId: userId } });
-  if (!user) return NextResponse.json({ transactions: [] });
+    const user = await prisma.user.findUnique({ where: { clerkId: userId } });
+    if (!user) return NextResponse.json({ transactions: [] });
 
-  const transactions = await prisma.transaction.findMany({
-    where: { userId: user.id },
-    orderBy: { date: "desc" },
-  });
+    const transactions = await prisma.transaction.findMany({
+      where: { userId: user.id },
+      orderBy: { date: "desc" },
+    });
 
-  return NextResponse.json({ transactions });
+    return NextResponse.json({ transactions });
+  } catch (error) {
+    console.error("GET /api/transactions error:", error);
+    return NextResponse.json({ error: "Server error" }, { status: 500 });
+  }
 }
 
 export async function POST(req: Request) {
-  const { userId } = await auth();
-  if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  try {
+    const { userId } = await auth();
+    if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  let user = await prisma.user.findUnique({ where: { clerkId: userId } });
-  if (!user) {
-    user = await prisma.user.create({
-      data: { clerkId: userId, email: userId + "@temp.com" },
+    let user = await prisma.user.findUnique({ where: { clerkId: userId } });
+    if (!user) {
+      user = await prisma.user.create({
+        data: { clerkId: userId, email: userId + "@temp.com" },
+      });
+    }
+
+    const body = await req.json();
+    const { amount, type, category, description, date } = body;
+
+    const transaction = await prisma.transaction.create({
+      data: {
+        userId: user.id,
+        amount: parseFloat(amount),
+        type,
+        category,
+        description,
+        date: new Date(date),
+      },
     });
+
+    return NextResponse.json({ transaction });
+  } catch (error) {
+    console.error("POST /api/transactions error:", error);
+    return NextResponse.json({ error: "Server error" }, { status: 500 });
   }
+}
 
-  const body = await req.json();
-  const { amount, type, category, description, date } = body;
+export async function DELETE(req: Request) {
+  try {
+    const { userId } = await auth();
+    if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const transaction = await prisma.transaction.create({
-    data: {
-      userId: user.id,
-      amount: parseFloat(amount),
-      type,
-      category,
-      description,
-      date: new Date(date),
-    },
-  });
+    const { id } = await req.json();
+    await prisma.transaction.delete({
+      where: { id },
+    });
 
-  return NextResponse.json({ transaction });
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error("DELETE /api/transactions error:", error);
+    return NextResponse.json({ error: "Failed to delete transaction" }, { status: 500 });
+  }
 }

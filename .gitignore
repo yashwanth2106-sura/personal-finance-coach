@@ -46,3 +46,6 @@ next-env.d.ts
 /.clerk/
 
 .vercel
+*.db
+*.db-journal
+prisma/*.db

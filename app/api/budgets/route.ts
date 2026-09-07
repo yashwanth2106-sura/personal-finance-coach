@@ -14,12 +14,34 @@ export async function GET() {
       });
     }
 
+    const now = new Date();
+    const month = now.getMonth() + 1;
+    const year = now.getFullYear();
+
     const budgets = await prisma.budget.findMany({
       where: { userId: user.id },
       orderBy: { createdAt: "desc" },
     });
 
-    return NextResponse.json({ budgets });
+    const budgetsWithSpent = await Promise.all(
+      budgets.map(async (budget) => {
+        const transactions = await prisma.transaction.findMany({
+          where: {
+            userId: user!.id,
+            category: budget.category,
+            type: "expense",
+            date: {
+              gte: new Date(`${year}-${String(month).padStart(2, "0")}-01`),
+              lt: new Date(month === 12 ? `${year + 1}-01-01` : `${year}-${String(month + 1).padStart(2, "0")}-01`),
+            },
+          },
+        });
+        const spent = transactions.reduce((sum, t) => sum + t.amount, 0);
+        return { ...budget, spent };
+      })
+    );
+
+    return NextResponse.json({ budgets: budgetsWithSpent });
   } catch (error) {
     console.error(error);
     return NextResponse.json({ budgets: [] });
@@ -41,8 +63,19 @@ export async function POST(req: Request) {
     const { category, limitAmount } = await req.json();
     const now = new Date();
 
-    const budget = await prisma.budget.create({
-      data: {
+    const budget = await prisma.budget.upsert({
+      where: {
+        userId_category_month_year: {
+          userId: user.id,
+          category,
+          month: now.getMonth() + 1,
+          year: now.getFullYear(),
+        },
+      },
+      update: {
+        limitAmount: parseFloat(limitAmount),
+      },
+      create: {
         userId: user.id,
         category,
         limitAmount: parseFloat(limitAmount),
